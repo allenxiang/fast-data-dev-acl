@@ -413,6 +413,9 @@ ssl.protocol=TLS
 ssl.enabled.protocols=TLSv1.2,TLSv1.1,TLSv1
 ssl.keystore.type=JKS
 ssl.truststore.type=JKS
+authorizer.class.name=kafka.security.auth.SimpleAclAuthorizer
+allow.everyone.if.no.acl.found=true
+super.users=User:CN=kafka;User:CN=client;User:CN=clientA;User:CN=clientB
 EOF
     sed -r -e "s|^(listeners=.*)|\1,SSL://:${BROKER_SSL_PORT}|" \
         -i /var/run/broker/server.properties
