@@ -202,7 +202,11 @@ envsubst < /usr/local/share/landoop/etc/fast-data-dev-ui/env.js > /var/www/env.j
 if [[ -n ${ADV_HOST} ]]; then
     echo -e "\e[92mSetting advertised host to \e[96m${ADV_HOST}\e[34m\e[92m.\e[34m"
     if [[ -z ${KAFKA_ADVERTISED_LISTENERS} ]]; then
-        export KAFKA_ADVERTISED_LISTENERS="PLAINTEXT://${ADV_HOST}:${BROKER_PORT}"
+        if [[ $ENABLE_SSL =~ $TRUE_REG ]]; then
+            export KAFKA_ADVERTISED_LISTENERS="PLAINTEXT://${ADV_HOST}:${BROKER_PORT},SSL://${ADV_HOST}:${BROKER_SSL_PORT}"
+        else
+            export KAFKA_ADVERTISED_LISTENERS="PLAINTEXT://${ADV_HOST}:${BROKER_PORT}"
+        fi
     fi
     if [[ -z $CONNECT_REST_ADVERTISED_HOST_NAME ]]; then
         export CONNECT_REST_ADVERTISED_HOST_NAME=${ADV_HOST}
@@ -360,7 +364,7 @@ if [[ $ENABLE_SSL =~ $TRUE_REG ]]; then
             pushd /tmp/certs
             # Create Landoop Fast Data Dev CA
             quickcert -ca -out lfddca. -CN "Landoop's Fast Data Dev Self Signed Certificate Authority"
-            SSL_HOSTS="localhost,127.0.0.1,192.168.99.100"
+            SSL_HOSTS="localhost,127.0.0.1"
             HOSTNAME=${HOSTNAME:-} # This come from the container, so let's not permit it be unbound
             if [[ ! -z $HOSTNAME ]]; then SSL_HOSTS="$SSL_HOSTS,$HOSTNAME"; fi
             if [[ ! -z $ADV_HOST ]]; then SSL_HOSTS="$SSL_HOSTS,$ADV_HOST"; fi
@@ -411,19 +415,14 @@ ssl.truststore.location=/tmp/certs/truststore.jks
 ssl.truststore.password=fastdata
 ssl.protocol=TLS
 ssl.enabled.protocols=TLSv1.2,TLSv1.1,TLSv1
-ssl.keystore.type=JKS
-ssl.truststore.type=JKS
 authorizer.class.name=kafka.security.auth.SimpleAclAuthorizer
 allow.everyone.if.no.acl.found=true
-super.users=User:CN=kafka;User:CN=client;User:CN=clientA;User:CN=clientB
+ssl.keystore.type=JKS
+ssl.truststore.type=JKS
+super.users=User:CN=kafka;User:CN=client;User:CN=clientA;User:CN=clientB;
 EOF
     sed -r -e "s|^(listeners=.*)|\1,SSL://:${BROKER_SSL_PORT}|" \
         -i /var/run/broker/server.properties
-    if [[ -n ${ADV_HOST} ]] && [[ -z ${KAFKA_ADVERTISED_LISTENERS} ]]; then
-        sed -r \
-            -e "s|^(advertised.listeners=.*)|\1,SSL://${ADV_HOST}:${BROKER_SSL_PORT}|" \
-            -i /var/run/broker/server.properties
-    fi
 
     # Log authorization requests
     if [[ $DEBUG_AUTH =~ $TRUE_REG ]]; then
